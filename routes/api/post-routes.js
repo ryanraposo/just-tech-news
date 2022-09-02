@@ -1,14 +1,21 @@
+const sequelize = require('../../config/connection');
 const router = require('express').Router();
-const { Post, User } = require('../../models');
+const { Post, User, Vote } = require('../../models');
 
 
 // GET /api/posts
 router.get('/', (req, res) => {
     console.log('======================');
     Post.findAll({
-      attributes: ['id', 'post_url', 'title', 'created_at'],
-      order: [['created_at', 'DESC']],
-      include: [
+        attributes: [
+            'id',
+            'post_url',
+            'title',
+            'created_at',
+            [sequelize.literal('(SELECT COUNT(*) FROM vote WHERE post.id = vote.post_id)'), 'vote_count']
+        ],
+        order: [['created_at', 'DESC']],
+        include: [
         {
             model: User,
             attributes: ['username']
@@ -25,16 +32,22 @@ router.get('/', (req, res) => {
 // GET /api/posts/1
 router.get('/:id', (req, res) => {
     Post.findOne({
-      where: {
-        id: req.params.id
-      },
-      attributes: ['id', 'post_url', 'title', 'created_at'],
-      include: [
-        {
-          model: User,
-          attributes: ['username']
-        }
-      ]
+        where: {
+            id: req.params.id
+        },
+        attributes: [
+            'id',
+            'post_url',
+            'title',
+            'created_at',
+            [sequelize.literal('(SELECT COUNT(*) FROM vote WHERE post.id = vote.post_id)'), 'vote_count']
+        ],
+        include: [
+            {
+            model: User,
+            attributes: ['username']
+            }
+        ]
     })
       .then(dbPostData => {
         if (!dbPostData) {
@@ -61,6 +74,16 @@ router.post('/', (req, res) => {
             console.log(err);
             res.status(500).json(err);
         });
+});
+
+// PUT /api/posts/upvote
+router.put('/upvote', (req, res) => {
+    Post.upvote(req.body, { Vote })
+    .then(updatePostData => res.json(updatePostData))
+    .catch(err => {
+        console.log(err);
+        res.status(400).json(err);
+    });
 });
 
 // PUT /api/posts/1
